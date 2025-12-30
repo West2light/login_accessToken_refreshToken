@@ -66,15 +66,6 @@ api.interceptors.response.use(
         processQueue(null, newAccessToken);
         
         return api(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        removeAccessToken();
-        
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
-        
-        return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
