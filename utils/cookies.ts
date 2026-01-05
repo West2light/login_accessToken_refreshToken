@@ -3,10 +3,8 @@ import Cookies from 'js-cookie';
 export const setAccessToken = (token: string) => {
   Cookies.set('accessToken', token, { 
     expires: 1/96, // 15 phút
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    httpOnly: false, // js-cookie không thể set httpOnly, chỉ server mới có thể set
-    
+    secure: true, // Chỉ gửi cookie qua kết nối HTTPS
+    sameSite: 'none', //Cho phép cookie cross-domain 
   });
 };
 
@@ -17,7 +15,6 @@ export const getAccessToken = () => {
 export const removeAccessToken = () => {
   Cookies.remove('accessToken');
 };
-
 export const isAuthenticated = () => {
   return !!getAccessToken();
 };

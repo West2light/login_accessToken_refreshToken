@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { setAccessToken,getAccessToken,removeAccessToken } from '../utils/cookies';
-
+import {isTokenExpired, willTokenExpireSoon} from '../utils/jwt';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL 
 
 export const api = axios.create({
@@ -11,11 +11,44 @@ export const api = axios.create({
   },
 });
 
-api.interceptors.request.use((config) => {
+
+api.interceptors.request.use(async (config) => {
   const token = getAccessToken();
 
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    if (isTokenExpired(token)) {
+      removeAccessToken();
+    } else if (willTokenExpireSoon(token, 300)) {
+      // Token sắp hết hạn (còn < 5 phút) → refresh trước
+      if (!isRefreshing) {
+        isRefreshing = true;
+        try {
+          const { data } = await axios.get(`${API_BASE_URL}/auth/refresh`, {
+            withCredentials: true,
+          });
+          const newAccessToken = data.accessToken;
+          setAccessToken(newAccessToken);
+          config.headers.Authorization = `Bearer ${newAccessToken}`;
+          processQueue(null, newAccessToken);
+        } catch (error) {
+          removeAccessToken();
+          processQueue(error, null);
+        } finally {
+          isRefreshing = false;
+        }
+      } else {
+        // Đang refresh, đợi kết quả
+        await new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        });
+        const newToken = getAccessToken();
+        if (newToken) {
+          config.headers.Authorization = `Bearer ${newToken}`;
+        }
+      }
+    } else {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
 
   return config;
@@ -57,7 +90,7 @@ api.interceptors.response.use(
         const { data } = await axios.get(`${API_BASE_URL}/auth/refresh`, {
           withCredentials: true,
         });
-        
+      
         const newAccessToken = data.accessToken;
         
         // Lưu vào cookie với thời gian expire (ví dụ 15 phút)
@@ -66,7 +99,13 @@ api.interceptors.response.use(
         processQueue(null, newAccessToken);
         
         return api(originalRequest);
-      } finally {
+      }
+      catch (refreshError) {
+        processQueue(refreshError, null);
+        removeAccessToken();
+        return Promise.reject(refreshError);
+      }
+      finally {
         isRefreshing = false;
       }
     }
