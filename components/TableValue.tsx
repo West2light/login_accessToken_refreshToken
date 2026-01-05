@@ -2,7 +2,7 @@
 import { Table, Button, Modal, Form, Input, Select, message } from 'antd';
 import { useEffect, useState } from 'react';
 import { getDefaultValues, addDefaultValue, DefaultValueType } from '../api/defaultValue';
-
+import {logout} from '../api/auth';
 const { Option } = Select;
 const TYPE_OPTIONS: DefaultValueType[] = ['FormulaUnit', 'TestGroup', 'MethodGroup'];
 
@@ -53,7 +53,18 @@ export default function DefaultValueTable() {
       message.error(e?.response?.data?.message || 'Thêm thất bại');
     }
   };
-
+  const handleLogOut = async () => {
+    Modal.confirm({
+      title: 'Xác nhận đăng xuất',
+      content: 'Bạn có chắc chắn muốn đăng xuất không?',
+      okText: 'Đăng xuất',
+      cancelText: 'Hủy',
+      onOk: async () => { 
+        await logout();
+      }
+  }
+)
+};
   const columns = [
     { title: 'ID', dataIndex: 'id', width: 200 },
     { title: 'Value', dataIndex: 'value' },
@@ -62,13 +73,17 @@ export default function DefaultValueTable() {
 
   return (
     <>
-      <div style={{ marginBottom: 16, display: 'flex', gap: 12 }}>
+
+      <div style={{ marginBottom: 16, display: 'flex', gap: 12, marginTop: 16 }}>
         <Select value={type} onChange={setType} style={{ width: 200 }}>
           {TYPE_OPTIONS.map(t => (
             <Option key={t} value={t}>{t}</Option>
           ))}
         </Select>
         <Button type="primary" onClick={openModal}>Thêm mới</Button>
+        <Button danger onClick={() => handleLogOut()} style={{ marginLeft: 'auto' }} >
+          Đăng xuất
+        </Button>
       </div>
 
       <Table
